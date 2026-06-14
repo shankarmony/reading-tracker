@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shankar's Reading Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F4EF; --surface: #FFFFFF; --border: #E2DDD6;
+    --text-primary: #1A1714; --text-secondary: #6B6560; --text-muted: #9E9890;
+    --accent: #3B3280; --accent-light: #EEEDFE;
+    --warn: #854F0B; --warn-light: #FAEEDA;
+    --danger: #A32D2D; --danger-light: #FCEBEB;
+    --ok: #3B6D11; --ok-light: #EAF3DE;
+    --neutral-light: #F1EFE8; --neutral: #5F5E5A;
+    --serif: 'EB Garamond', Georgia, serif; --sans: 'Inter', system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1A1714; --surface: #242019; --border: #3A3630;
+      --text-primary: #F0EDE8; --text-secondary: #9E9890; --text-muted: #6B6560;
+      --accent: #AFA9EC; --accent-light: #26215C;
+      --warn: #FAC775; --warn-light: #412402;
+      --danger: #F09595; --danger-light: #501313;
+      --ok: #97C459; --ok-light: #173404;
+      --neutral-light: #2C2C2A; --neutral: #B4B2A9;
+    }
+  }
+  body { background: var(--bg); color: var(--text-primary); font-family: var(--sans); font-size: 15px; line-height: 1.6; min-height: 100vh; padding: 2rem 1rem 4rem; }
+  .container { max-width: 680px; margin: 0 auto; }
+  header { margin-bottom: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; }
+  header h1 { font-family: var(--serif); font-size: 28px; font-weight: 400; font-style: italic; color: var(--text-primary); letter-spacing: -0.01em; }
+  header .subtitle { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .header-row { display: flex; align-items: baseline; justify-content: space-between; }
+  .sync-status { font-size: 11px; color: var(--text-muted); }
+  .sync-status.syncing { color: var(--warn); }
+  .sync-status.ok { color: var(--ok); }
+  .sync-status.error { color: var(--danger); }
+  .section-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
+  .book-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 10px; transition: border-color 0.15s; }
+  .book-card:hover { border-color: var(--text-muted); }
+  .book-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .book-title { font-family: var(--serif); font-size: 17px; font-weight: 400; color: var(--text-primary); line-height: 1.3; }
+  .book-meta-line { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .badge-ok { background: var(--ok-light); color: var(--ok); }
+  .badge-warn { background: var(--warn-light); color: var(--warn); }
+  .badge-danger { background: var(--danger-light); color: var(--danger); }
+  .badge-neutral { background: var(--neutral-light); color: var(--neutral); }
+  .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .progress-track { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .progress-pct { font-size: 13px; font-weight: 500; color: var(--text-primary); min-width: 38px; text-align: right; }
+  .book-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-secondary); }
+  .book-stats .stat { display: flex; align-items: center; gap: 4px; }
+  .deadline-urgent { color: var(--danger); font-weight: 500; }
+  .deadline-soon { color: var(--warn); font-weight: 500; }
+  .notes-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .notes-toggle { font-size: 12px; color: var(--text-muted); background: none; border: none; padding: 0; cursor: pointer; font-family: var(--sans); }
+  .notes-toggle:hover { color: var(--text-secondary); opacity: 1; }
+  .notes-area { display: none; margin-top: 8px; }
+  .notes-area.open { display: block; }
+  textarea { width: 100%; font-family: var(--serif); font-size: 14px; line-height: 1.6; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text-primary); resize: vertical; min-height: 80px; outline: none; transition: border-color 0.15s; }
+  textarea:focus { border-color: var(--accent); }
+  .notes-save { margin-top: 6px; font-size: 12px; padding: 5px 12px; background: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-family: var(--sans); }
+  .notes-save:hover { background: var(--neutral-light); opacity: 1; }
+  .divider { margin: 2rem 0 1.5rem; border: none; border-top: 1px solid var(--border); }
+  .chart-section { margin-bottom: 2rem; }
+  .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .chart-title { font-family: var(--serif); font-size: 16px; font-weight: 400; font-style: italic; color: var(--text-primary); }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .log-section { margin-top: 2rem; }
+  .log-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  select, input[type="number"] { font-family: var(--sans); font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-primary); outline: none; transition: border-color 0.15s; }
+  select:focus, input[type="number"]:focus { border-color: var(--accent); }
+  select { flex: 2; min-width: 160px; }
+  input[type="number"] { flex: 1; min-width: 100px; }
+  button { font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 7px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+  button:hover { opacity: 0.85; }
+  .btn-secondary { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+  .log-entries { margin-top: 8px; }
+  .log-entry { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); padding: 7px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .log-entry:last-child { border-bottom: none; }
+  .log-book { color: var(--text-primary); font-family: var(--serif); font-size: 13px; }
+  .log-amount { color: var(--accent); font-weight: 500; white-space: nowrap; }
+  .log-date { color: var(--text-muted); white-space: nowrap; }
+  .constraints { margin-top: 2rem; padding: 0.875rem 1rem; background: var(--accent-light); border-radius: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
+  .constraints strong { color: var(--text-primary); font-weight: 500; }
+  .empty-log { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 8px 0; }
+  .reset-row { display: flex; justify-content: flex-end; margin-top: 0.75rem; }
+  .loading-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .loading-text { font-family: var(--serif); font-size: 18px; font-style: italic; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <span class="loading-text">Loading your books…</span>
+</div>
+
+<div class="container">
+  <header>
+    <div class="header-row">
+      <h1>Reading tracker</h1>
+      <span class="sync-status" id="syncStatus">—</span>
+    </div>
+    <p class="subtitle" id="todayDate"></p>
+  </header>
+
+  <div class="section-label">Active books</div>
+  <div id="booksContainer"></div>
+
+  <hr class="divider">
+
+  <div class="chart-section">
+    <div class="section-label">This week</div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <span class="chart-title">Reading sessions</span>
+      </div>
+      <div class="chart-legend" id="chartLegend"></div>
+      <div style="position: relative; width: 100%; height: 200px;">
+        <canvas id="weekChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="log-section">
+    <div class="section-label">Log reading</div>
+    <div class="log-controls">
+      <select id="logBook"></select>
+      <input type="number" id="logAmount" placeholder="Pages / locs / %" min="1" />
+      <button onclick="logReading()">Save</button>
+    </div>
+    <div class="log-entries" id="logEntries"></div>
+    <div class="reset-row">
+      <button class="btn-secondary" onclick="confirmReset()">Reset all progress</button>
+    </div>
+  </div>
+
+  <div class="constraints">
+    <strong>Daily:</strong> 3 hrs writing · Transcribing · Substack weekly<br>
+    <strong>Weekends:</strong> Iliad &amp; Shakespeare only
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://tnxibfhyvqecckiqmqtg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRueGliZmh5dnFlY2NraXFtcXRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MzM0MjEsImV4cCI6MjA5NzAwOTQyMX0.b5-BgoOP0fnhiCnliBHCRdkF6qASrKIaiunSelfVr28';
+
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Prefer': 'return=representation'
+};
+
+const defaultBooks = [
+  { id: 'wap',      title: 'War and Peace',          author: 'Tolstoy', group: 'War & Peace group', type: 'kindle',  current: 17470, total: 26900, deadline: null,         pace: '53 locs / 5 days',       color: '#534AB7' },
+  { id: 'aoi',      title: 'The Age of Innocence',   author: 'Wharton', group: 'CY',                type: 'percent', current: 50,    total: 100,   deadline: '2026-06-22', pace: null,                      color: '#1D9E75' },
+  { id: 'wtbf',     title: 'Walk the Blue Fields',   author: 'Keegan',  group: 'PBCC',              type: 'percent', current: 0,     total: 100,   deadline: '2026-07-10', pace: null,                      color: '#D85A30' },
+  { id: 'trans',    title: 'Transcription',           author: 'Atkinson',group: 'Personal',          type: 'percent', current: 10,    total: 100,   deadline: null,         pace: 'ASAP',                    color: '#BA7517' },
+  { id: 'bartleby', title: 'Bartleby the Scrivener', author: 'Melville',group: 'CY',                type: 'percent', current: 0,     total: 100,   deadline: '2026-06-29', pace: 'After Age of Innocence',  color: '#185FA5' }
+];
+
+let books = JSON.parse(JSON.stringify(defaultBooks));
+let log = [];
+let notes = {};
+let weekChart = null;
+
+function setSync(state, msg) {
+  const el = document.getElementById('syncStatus');
+  el.textContent = msg;
+  el.className = 'sync-status ' + state;
+}
+
+async function sbGet(table, params = '') {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers: HEADERS });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbUpsert(table, data) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbDelete(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { method: 'DELETE', headers: HEADERS });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+async function loadFromSupabase() {
+  setSync('syncing', 'Loading…');
+  try {
+    const [dbBooks, dbLog, dbNotes] = await Promise.all([
+      sbGet('books', '?select=*'),
+      sbGet('reading_log', '?select=*&order=created_at.desc'),
+      sbGet('book_notes', '?select=*')
+    ]);
+
+    // Merge DB progress into our book definitions
+    books = JSON.parse(JSON.stringify(defaultBooks));
+    dbBooks.forEach(row => {
+      const b = books.find(x => x.id === row.id);
+      if (b) b.current = row.current;
+    });
+
+    log = dbLog.map(r => ({
+      bookId: r.book_id,
+      title: r.book_title,
+      amount: r.amount,
+      unit: r.unit,
+      date: r.logged_date
+    }));
+
+    notes = {};
+    dbNotes.forEach(r => { notes[r.book_id] = r.content; });
+
+    setSync('ok', 'Synced ✓');
+  } catch(e) {
+    console.error(e);
+    setSync('error', 'Offline — changes won\'t save');
+  }
+  document.getElementById('loadingOverlay').style.display = 'none';
+  renderAll();
+}
+
+async function saveBookProgress(book) {
+  setSync('syncing', 'Saving…');
+  try {
+    await sbUpsert('books', { id: book.id, current: book.current, updated_at: new Date().toISOString() });
+    setSync('ok', 'Saved ✓');
+  } catch(e) { setSync('error', 'Save failed'); console.error(e); }
+}
+
+async function saveLogEntry(entry) {
+  try {
+    await sbUpsert('reading_log', {
+      book_id: entry.bookId,
+      book_title: entry.title,
+      amount: entry.amount,
+      unit: entry.unit,
+      logged_date: entry.date
+    });
+  } catch(e) { console.error(e); }
+}
+
+async function saveNote(bookId) {
+  const val = document.getElementById('notes-ta-' + bookId).value;
+  notes[bookId] = val;
+  try {
+    await sbUpsert('book_notes', { book_id: bookId, content: val, updated_at: new Date().toISOString() });
+  } catch(e) { console.error(e); }
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.ceil((new Date(dateStr) - today) / 86400000);
+}
+
+function badgeFor(days, pct) {
+  if (pct >= 100) return { text: 'Done', cls: 'badge-ok' };
+  if (days === null) return { text: 'No deadline', cls: 'badge-neutral' };
+  if (days < 0) return { text: 'Overdue', cls: 'badge-danger' };
+  if (days === 0) return { text: 'Due today', cls: 'badge-danger' };
+  if (days <= 3) return { text: days + 'd left', cls: 'badge-danger' };
+  if (days <= 7) return { text: days + 'd left', cls: 'badge-warn' };
+  return { text: days + 'd left', cls: 'badge-ok' };
+}
+
+function pctFor(book) {
+  if (book.type === 'kindle') return Math.min(100, Math.round((book.current / book.total) * 100));
+  return Math.min(100, Math.round(book.current));
+}
+
+function toggleNotes(bookId) {
+  const area = document.getElementById('notes-area-' + bookId);
+  const btn = document.getElementById('notes-btn-' + bookId);
+  const isOpen = area.classList.contains('open');
+  area.classList.toggle('open', !isOpen);
+  btn.textContent = isOpen ? '+ Notes' : '− Notes';
+}
+
+function renderBooks() {
+  const container = document.getElementById('booksContainer');
+  container.innerHTML = '';
+  books.forEach(book => {
+    const pct = pctFor(book);
+    const days = daysUntil(book.deadline);
+    const badge = badgeFor(days, pct);
+    const deadlineFmt = book.deadline ? new Date(book.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : null;
+    const deadlineCls = days !== null && days <= 3 ? 'deadline-urgent' : days !== null && days <= 7 ? 'deadline-soon' : '';
+    const currentDisplay = book.type === 'kindle'
+      ? 'Loc ' + book.current.toLocaleString() + ' / ' + book.total.toLocaleString()
+      : pct + '% complete';
+    const bookNote = notes[book.id] || '';
+
+    container.innerHTML += `
+      <div class="book-card">
+        <div class="book-top">
+          <div>
+            <div class="book-title">${book.title}</div>
+            <div class="book-meta-line">${book.author} &middot; ${book.group}</div>
+          </div>
+          <span class="badge ${badge.cls}">${badge.text}</span>
+        </div>
+        <div class="progress-row">
+          <div class="progress-track">
+            <div class="progress-fill" style="width:${pct}%;background:${book.color}"></div>
+          </div>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        <div class="book-stats">
+          <span class="stat">${currentDisplay}</span>
+          ${deadlineFmt ? `<span class="stat ${deadlineCls}">Due ${deadlineFmt}</span>` : ''}
+          ${book.pace ? `<span class="stat" style="color:var(--text-muted)">${book.pace}</span>` : ''}
+        </div>
+        <div class="notes-row">
+          <button class="notes-toggle" id="notes-btn-${book.id}" onclick="toggleNotes('${book.id}')">${bookNote ? '− Notes' : '+ Notes'}</button>
+          <div class="notes-area ${bookNote ? 'open' : ''}" id="notes-area-${book.id}">
+            <textarea id="notes-ta-${book.id}" placeholder="Thoughts, passages, things to remember…" oninput="saveNote('${book.id}')">${bookNote}</textarea>
+          </div>
+        </div>
+      </div>`;
+  });
+}
+
+function getLast7Days() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+  }
+  return days;
+}
+
+function renderChart() {
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const tickColor = isDark ? '#6B6560' : '#9E9890';
+  const days = getLast7Days();
+
+  document.getElementById('chartLegend').innerHTML = books.map(b =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${b.color}"></span>${b.title.split(' ').slice(0,3).join(' ')}</span>`
+  ).join('');
+
+  const datasets = books.map(book => ({
+    label: book.title,
+    data: days.map(day => log.filter(e => e.bookId === book.id && e.date === day).reduce((s, e) => s + e.amount, 0)),
+    backgroundColor: book.color + 'CC',
+    borderColor: book.color,
+    borderWidth: 1
+  }));
+
+  if (weekChart) { weekChart.destroy(); weekChart = null; }
+  weekChart = new Chart(document.getElementById('weekChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: days, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: {
+        x: { stacked: true, ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } },
+        y: { stacked: true, ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
+function renderLog() {
+  const el = document.getElementById('logEntries');
+  if (log.length === 0) { el.innerHTML = '<p class="empty-log">No entries yet. Log your first session above.</p>'; return; }
+  el.innerHTML = log.slice(0, 20).map(e =>
+    `<div class="log-entry">
+      <span class="log-book">${e.title}</span>
+      <span class="log-amount">+${e.amount} ${e.unit}</span>
+      <span class="log-date">${e.date}</span>
+    </div>`
+  ).join('');
+}
+
+function populateSelect() {
+  document.getElementById('logBook').innerHTML = books.map(b => `<option value="${b.id}">${b.title}</option>`).join('');
+}
+
+function renderAll() {
+  renderBooks();
+  renderLog();
+  renderChart();
+  populateSelect();
+}
+
+async function logReading() {
+  const bookId = document.getElementById('logBook').value;
+  const amount = parseFloat(document.getElementById('logAmount').value);
+  if (!amount || amount <= 0) return;
+  const book = books.find(b => b.id === bookId);
+  if (!book) return;
+
+  if (book.type === 'kindle') {
+    book.current = Math.min(book.total, book.current + Math.round(amount));
+  } else {
+    book.current = Math.min(100, book.current + amount);
+  }
+
+  const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const entry = {
+    bookId: book.id, title: book.title,
+    amount: book.type === 'kindle' ? Math.round(amount) : amount,
+    unit: book.type === 'kindle' ? 'locs' : '%',
+    date: dateStr
+  };
+  log.unshift(entry);
+
+  document.getElementById('logAmount').value = '';
+  renderAll();
+
+  await Promise.all([saveBookProgress(book), saveLogEntry(entry)]);
+}
+
+async function confirmReset() {
+  if (!confirm('Reset all progress, notes, and log entries in the database?')) return;
+  setSync('syncing', 'Resetting…');
+  try {
+    await Promise.all([
+      sbDelete('books', '?id=neq.none'),
+      sbDelete('reading_log', '?id=neq.00000000-0000-0000-0000-000000000000'),
+      sbDelete('book_notes', '?book_id=neq.none')
+    ]);
+    books = JSON.parse(JSON.stringify(defaultBooks));
+    log = []; notes = {};
+    setSync('ok', 'Reset ✓');
+    renderAll();
+  } catch(e) { setSync('error', 'Reset failed'); console.error(e); }
+}
+
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-IN', {
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+});
+
+loadFromSupabase();
+</script>
+</body>
+</html>
